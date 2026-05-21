@@ -6,7 +6,9 @@
  * "Skill must use onchainOS as the primary data source and trading tool."
  */
 
-import { execSync } from "child_process";
+import { exec } from "child_process";
+import { promisify } from "util";
+const execAsync = promisify(exec);
 
 const CLI_TIMEOUT_MS = 30000;
 
@@ -30,9 +32,9 @@ function validateEnv(): void {
 // Call validation on first import
 validateEnv();
 
-function runCommand(command: string): OnchainOSResult {
+async function runCommand(command: string): Promise<OnchainOSResult> {
   try {
-    const output = execSync(`onchainos ${command} --json`, {
+    const { stdout } = await execAsync(`onchainos ${command} --json`, {
       timeout: CLI_TIMEOUT_MS,
       encoding: "utf-8",
       env: {
@@ -44,7 +46,7 @@ function runCommand(command: string): OnchainOSResult {
     });
 
     // onchainOS CLI returns JSON when --json flag is used
-    const parsed = JSON.parse(output);
+    const parsed = JSON.parse(stdout);
     return { success: true, data: parsed };
   } catch (err: any) {
     // Try to parse error output as JSON
@@ -62,7 +64,7 @@ function runCommand(command: string): OnchainOSResult {
 
 export async function getAaveReserves(): Promise<any[]> {
   // Query Aave V3 lending products on X Layer
-  const result = runCommand(`defi search --chain xlayer --product-group LENDING --limit 50`);
+  const result = await runCommand(`defi search --chain xlayer --product-group LENDING --limit 50`);
   if (!result.success) {
     throw new Error(`Failed to fetch Aave reserves: ${result.error}`);
   }
@@ -75,7 +77,7 @@ export async function getAaveReserveDetail(investmentId: string): Promise<any> {
   if (escapedId !== investmentId) {
     throw new Error(`Invalid investmentId format: ${investmentId}`);
   }
-  const result = runCommand(`defi detail --investment-id ${escapedId}`);
+  const result = await runCommand(`defi detail --investment-id ${escapedId}`);
   if (!result.success) {
     throw new Error(`Failed to fetch reserve detail: ${result.error}`);
   }
@@ -85,7 +87,7 @@ export async function getAaveReserveDetail(investmentId: string): Promise<any> {
 // ── Market / Price Data ──
 
 export async function getTokenPrice(tokenAddress: string): Promise<any> {
-  const result = runCommand(`market price --address ${tokenAddress.toLowerCase()} --chain xlayer`);
+  const result = await runCommand(`market price --address ${tokenAddress.toLowerCase()} --chain xlayer`);
   if (!result.success) {
     throw new Error(`Failed to fetch price: ${result.error}`);
   }
@@ -94,7 +96,7 @@ export async function getTokenPrice(tokenAddress: string): Promise<any> {
 
 export async function getTokenPrices(tokenAddresses: string[]): Promise<any[]> {
   const addresses = tokenAddresses.map(a => a.toLowerCase()).join(",");
-  const result = runCommand(`market prices --tokens "${addresses}" --chain xlayer`);
+  const result = await runCommand(`market prices --tokens "${addresses}" --chain xlayer`);
   if (!result.success) {
     throw new Error(`Failed to fetch prices: ${result.error}`);
   }
@@ -108,7 +110,7 @@ export async function getWalletBalances(address: string, chains: string = "xlaye
   if (!/^0x[a-fA-F0-9]{40}$/.test(address)) {
     throw new Error(`Invalid Ethereum address: ${address}`);
   }
-  const result = runCommand(`portfolio all-balances --address ${address.toLowerCase()} --chains "${chains}"`);
+  const result = await runCommand(`portfolio all-balances --address ${address.toLowerCase()} --chains "${chains}"`);
   if (!result.success) {
     throw new Error(`Failed to fetch balances: ${result.error}`);
   }
@@ -120,7 +122,7 @@ export async function getWalletTotalValue(address: string, chains: string = "xla
   if (!/^0x[a-fA-F0-9]{40}$/.test(address)) {
     throw new Error(`Invalid Ethereum address: ${address}`);
   }
-  const result = runCommand(`portfolio total-value --address ${address.toLowerCase()} --chains "${chains}"`);
+  const result = await runCommand(`portfolio total-value --address ${address.toLowerCase()} --chains "${chains}"`);
   if (!result.success) {
     throw new Error(`Failed to fetch total value: ${result.error}`);
   }
@@ -134,7 +136,7 @@ export async function searchToken(query: string, chains: string = "xlayer"): Pro
   if (!/^[a-zA-Z0-9\s-]{1,100}$/.test(query)) {
     throw new Error(`Invalid token query: ${query}`);
   }
-  const result = runCommand(`token search --query "${query}" --chains "${chains}"`);
+  const result = await runCommand(`token search --query "${query}" --chains "${chains}"`);
   if (!result.success) {
     throw new Error(`Failed to search token: ${result.error}`);
   }

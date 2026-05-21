@@ -101,14 +101,7 @@ async function fetchHyperliquidFunding(coin: string): Promise<number> {
     } catch (err: any) {
       attempts++;
       if (attempts >= maxAttempts) {
-        // Return cached value as fallback, otherwise throw
-        if (cached) {
-          console.warn(
-            `[fetchHyperliquidFunding] Max retries reached for ${coin}. Using cached value.`
-          );
-          return cached.rate;
-        }
-        throw err;
+        throw new Error(`[fetchHyperliquidFunding] Max retries reached for ${coin}: ${err.message}`);
       }
       // Exponential backoff: 500ms, 1000ms, 2000ms
       await new Promise((resolve) =>
